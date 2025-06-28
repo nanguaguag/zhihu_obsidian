@@ -1,12 +1,29 @@
-import { App, PluginSettingTab, Setting, Notice } from "obsidian";
+import {
+    App,
+    PluginSettingTab,
+    Setting,
+    Notice,
+    ButtonComponent,
+    Modal,
+} from "obsidian";
 import ZhihuObPlugin from "./main";
 import { loadSettings, saveSettings } from "./settings";
 import * as login from "./login_service";
 import { loadData, deleteData } from "./data";
+import i18n, { type Lang } from "../locales";
+import { EditorView } from "@codemirror/view";
+import { createCookiesEditor } from "./ui/cookies_editor/editor";
+
+const locale = i18n.current;
 
 export class ZhihuSettingTab extends PluginSettingTab {
     plugin: ZhihuObPlugin;
     isLoggedIn = false;
+    cookiesEditor: EditorView;
+
+    hide() {
+        this.cookiesEditor?.destroy();
+    }
 
     userInfo: { avatar_url: string; name: string; headline?: string } | null =
         null;
@@ -37,9 +54,10 @@ export class ZhihuSettingTab extends PluginSettingTab {
 
         // User login status and info
         new Setting(containerEl)
-            .setName("My account")
-            .setDesc("Manage your Zhihu login status")
+            .setName(locale.settings.accountTitle)
+            .setDesc(locale.settings.accountTitleDesc)
             .then((setting) => {
+                setting.nameEl.addClass("zhihu-flex-container");
                 if (this.isLoggedIn && this.userInfo) {
                     const userInfoContainer = setting.nameEl.createDiv({
                         cls: "zhihu-user-info",
@@ -73,7 +91,7 @@ export class ZhihuSettingTab extends PluginSettingTab {
                     // Log out button
                     setting.addButton((button) =>
                         button
-                            .setButtonText("Log out")
+                            .setButtonText(locale.settings.logoutButtonText)
                             .setWarning()
                             .onClick(async () => {
                                 try {
@@ -86,7 +104,7 @@ export class ZhihuSettingTab extends PluginSettingTab {
                                     this.userInfo = null;
                                     this.display();
                                 } catch (e) {
-                                    console.error("Failed to log out:", e);
+                                    console.error(locale.error.logoutFailed, e);
                                 }
                             }),
                     );
@@ -94,7 +112,7 @@ export class ZhihuSettingTab extends PluginSettingTab {
                     // Log in button
                     setting.addButton((button) =>
                         button
-                            .setButtonText("Log in")
+                            .setButtonText(locale.settings.loginButtonText)
                             .setCta()
                             .onClick(async () => {
                                 try {
@@ -119,7 +137,7 @@ export class ZhihuSettingTab extends PluginSettingTab {
                                     }
                                     this.display();
                                 } catch (e) {
-                                    console.error("Failed to log in:", e);
+                                    console.error(locale.error.loginFailed, e);
                                 }
                             }),
                     );
@@ -129,11 +147,11 @@ export class ZhihuSettingTab extends PluginSettingTab {
         // User Agent setting
         const settings = await loadSettings(this.app.vault);
         new Setting(containerEl)
-            .setName("User agent")
-            .setDesc("Custom user agent for Zhihu API requests")
+            .setName(locale.settings.userAgent)
+            .setDesc(locale.settings.userAgentDesc)
             .addText((text) =>
                 text
-                    .setPlaceholder("Enter user agent")
+                    .setPlaceholder(locale.settings.userAgentPlaceholder)
                     .setValue(settings.user_agent)
                     .onChange(async (value) => {
                         try {
@@ -141,60 +159,58 @@ export class ZhihuSettingTab extends PluginSettingTab {
                                 user_agent: value,
                             });
                         } catch (e) {
-                            console.error("Failed to save user agent:", e);
+                            console.error(locale.error.saveUserAgentFailed, e);
                         }
                     }),
             );
 
         // Restrict @知友 to notes with zhihu tag
         new Setting(containerEl)
-            .setName("Restrict @Zhihuers to Zhihu-tagged notes")
-            .setDesc(
-                "Enable @Zhihuers functionality only for notes with a 'zhihu' tag in frontmatter. (Need to reload plugin once changed)",
-            )
+            .setName(locale.settings.restrictAt)
+            .setDesc(locale.settings.restrictAtDesc)
             .addToggle((toggle) =>
                 toggle
-                    .setValue(settings.restrictToZhihuTag)
+                    .setValue(settings.restrictToZhihuFM)
                     .onChange(async (value) => {
                         try {
                             await saveSettings(this.app.vault, {
-                                restrictToZhihuTag: value,
+                                restrictToZhihuFM: value,
                             });
                         } catch (e) {
-                            console.error(
-                                "Failed to save restrictToZhihuTag setting:",
-                                e,
-                            );
+                            console.error(locale.error.saveRestrictAtFailed, e);
                         }
                     }),
             );
 
         // Clear Image Cahce in `data.cache`
         new Setting(containerEl)
-            .setName("Clear image cache")
-            .setDesc(
-                "With image cache, you can reduce access requency to the Zhihu API",
-            )
+            .setName(locale.settings.clearImageCache)
+            .setDesc(locale.settings.clearImageCacheDesc)
             .then((setting) => {
                 // Log out button
                 setting.addButton((button) =>
-                    button.setButtonText("Clear").onClick(async () => {
-                        try {
-                            await deleteData(this.app.vault, "cache");
-                            new Notice("Image cache cleared!");
-                        } catch (e) {
-                            console.error("Failed to clear image cache", e);
-                        }
-                    }),
+                    button
+                        .setButtonText(
+                            locale.settings.clearImageCacheButtonText,
+                        )
+                        .onClick(async () => {
+                            try {
+                                await deleteData(this.app.vault, "cache");
+                                new Notice(locale.notice.imageCacheCleared);
+                            } catch (e) {
+                                console.error(
+                                    locale.error.clearImageCacheFailed,
+                                    e,
+                                );
+                            }
+                        }),
                 );
             });
 
         // If send read to Zhihu
         new Setting(containerEl)
-            .setName("Send read to Zhihu")
-            .setDesc(
-                "Send read information to Zhihu when you click the slide view articles or answers",
-            )
+            .setName(locale.settings.sendRead)
+            .setDesc(locale.settings.sendReadDesc)
             .addToggle((toggle) =>
                 toggle
                     .setValue(settings.sendReadToZhihu)
@@ -204,37 +220,111 @@ export class ZhihuSettingTab extends PluginSettingTab {
                                 sendReadToZhihu: value,
                             });
                         } catch (e) {
+                            console.error(locale.error.saveSendZhihuFailed, e);
+                        }
+                    }),
+            );
+        // Setting to enable Zhihu level headings
+        new Setting(containerEl)
+            .setName(locale.settings.zhihuHeading)
+            .setDesc(locale.settings.zhihuHeadingDesc)
+            .addToggle((toggle) =>
+                toggle
+                    .setValue(settings.useZhihuHeadings)
+                    .onChange(async (value) => {
+                        try {
+                            await saveSettings(this.app.vault, {
+                                useZhihuHeadings: value,
+                            });
+                        } catch (e) {
                             console.error(
-                                "Failed to save sendReadToZhihu setting:",
+                                locale.error.saveUseZhihuHeadingFailed,
                                 e,
                             );
                         }
                     }),
             );
+        // setting to control if set default img name as img base name
+        // if img caption is not provided
+        new Setting(containerEl)
+            .setName(locale.settings.useImgNameDefault)
+            .setDesc(locale.settings.useImgNameDefaultDesc)
+            .addToggle((toggle) =>
+                toggle
+                    .setValue(settings.useImgNameDefault)
+                    .onChange(async (value) => {
+                        try {
+                            await saveSettings(this.app.vault, {
+                                useImgNameDefault: value,
+                            });
+                        } catch (e) {
+                            console.error(locale.error.saveUseImgNameFailed, e);
+                        }
+                    }),
+            );
 
-        // // Recommend Count setting
-        // new Setting(containerEl)
-        // 	.setName("Recommendation Count")
-        // 	.setDesc(
-        // 		"Number of recommended items to fetch from Zhihu API (5-12)",
-        // 	)
-        // 	.addSlider((slider) =>
-        // 		slider
-        // 			.setLimits(5, 12, 1)
-        // 			.setValue(settings.recommendCount)
-        // 			.setDynamicTooltip()
-        // 			.onChange(async (value) => {
-        // 				try {
-        // 					await saveSettings(this.app.vault, {
-        // 						recommendCount: value,
-        // 					});
-        // 				} catch (e) {
-        // 					console.error(
-        // 						"Failed to save recommendCount setting:",
-        // 						e,
-        // 					);
-        // 				}
-        // 			}),
-        // 	);
+        // 添加“手动编辑Cookies”开关
+        new Setting(containerEl)
+            .setName(locale.settings.editCookies)
+            .setDesc(locale.settings.editCookiesDesc)
+            .addToggle((toggle) =>
+                toggle
+                    .setValue(settings.manualCookieEdit)
+                    .onChange(async (value) => {
+                        try {
+                            await saveSettings(this.app.vault, {
+                                manualCookieEdit: value,
+                            });
+                            cookiesSetting.settingEl.toggleClass(
+                                "cookies-setting-area",
+                                value === true,
+                            );
+                            cookiesSetting.settingEl.toggleClass(
+                                "hidden",
+                                value !== true,
+                            );
+                        } catch (e) {
+                            console.error("保存设置失败", e);
+                        }
+                    }),
+            );
+        // cookies编辑器
+        const cookiesSetting = new Setting(containerEl)
+            .setName("Cookies")
+            .setDesc(locale.settings.editorDesc)
+            .setClass(
+                settings.manualCookieEdit ? "cookies-setting-area" : "hidden",
+            );
+
+        const data = await loadData(this.app.vault);
+        createCookiesEditor(this, cookiesSetting, data);
+    }
+}
+
+export class ConfirmationModal extends Modal {
+    constructor(
+        app: App,
+        body: string,
+        buttonCallback: (button: ButtonComponent) => void,
+        clickCallback: () => Promise<void>,
+    ) {
+        super(app);
+
+        this.contentEl.addClass("zhihu-obsidian-confirmation-modal");
+        this.contentEl.createEl("p", { text: body });
+
+        new Setting(this.contentEl)
+            .addButton((button) => {
+                buttonCallback(button);
+                button.onClick(async () => {
+                    await clickCallback();
+                    this.close();
+                });
+            })
+            .addButton((button) =>
+                button
+                    .setButtonText(locale.ui.cancel)
+                    .onClick(() => this.close()),
+            );
     }
 }

@@ -2,7 +2,7 @@
 <picture>
 <img alt="logo" src="./imgs/logo.svg" height="150">
 </picture>
-<h1>Zhihu On Obsidian</h1>
+<h1>Zhihu on Obsidian</h1>
 
 [中文 README](./README_CN.md)
 
@@ -37,14 +37,13 @@ Open command palette, type `Zhihu: Create new article`, the plugin will automati
 
 ![new_draft](./imgs/new_draft.jpg)
 
-The created markdown file have four properties:
+The created markdown file have three frontmatters:
 
-- tags: **required** to have `Zhihu`, or you can't publish.
-- title: default `untitled`, you may change it before publish.
-- topics: default none, you should add some, it is also **required**.
-- link: URL to your draft or articles
+- `zhihu-title`: default `untitled`, you may change it before publish.
+- `zhihu-topics`: default none, you should add some, it is also **required**.
+- `zhihu-link`: URL to your draft or articles
 
-After you typed some markdown and ready to publish, you can run command `Zhihu: Publish current file`. After doing that, the plugin will translate your markdown to Zhihu featured HTML, and publish it to Zhihu. You may **wait a few seconds** before you can actually see the article on Zhihu.
+After you typed some markdown and ready to publish, you can run command `Zhihu: Publish current article`. After doing that, the plugin will translate your markdown to Zhihu featured HTML, and publish it to Zhihu. You may **wait a few seconds** before you can actually see the article on Zhihu.
 
 ### Publish answers
 
@@ -52,9 +51,9 @@ Open command palette, type `Zhihu: Create new answer`, the plugin will ask you t
 
 ![new_answer_draft](./imgs/new_answer_draft.jpg)
 
-There are no properties you should fulfill, just type your thoughts or experience and run command `Zhihu: Publish current answer`. That's it, the answer URL then appear in the `link` property. You can also edit your answers anytime with the same command.
+There are no properties you should fulfill, just type your thoughts or experience and run command `Zhihu: Publish current answer`. That's it, the answer URL then appear in the `zhihu-link` property. You can also edit your answers anytime with the same command.
 
-It is worth mentioning that **you can't create two answers in one question**, witch means that if you've created an answer (or answer draft) for a question, you can't create it again. In this situation, **you should manually edit properties: tags, questions and link**. Then run publish command will update your answer.
+It is worth mentioning that **you can't create two answers in one question**, witch means that if you've created an answer (or answer draft) for a question, you can't create it again. In this situation, **you should manually edit properties: `zhihu-tags`, `zhihu-question` and `zhihu-link`**. Then run publish command will update your answer.
 
 ### Browsing
 
@@ -81,7 +80,7 @@ The syntax of at link is `[@name](https://www.zhihu.com/member_id "member_mentio
 It also dead easy to change your link into card. For example, you can use that to change GitHub link into a card titled `Github`.
 
 ```
-[Github](https://github.com/, "card")
+[Github](https://github.com/ "card")
 ```
 
 The result:
@@ -96,9 +95,17 @@ Please **DO NOT** use the `![caption](...)` syntax for local images, or they may
 
 ### Article cover
 
-The plugin also support adding your favorate cover to the article. Just add `cover` entry to properties and select pictures using `[[img]]` syntax. Like that
+The plugin also support adding your favorate cover to the article. Just add `zhihu-cover` entry to properties and select pictures using `[[img]]` syntax. Like that
 
 ![cover_example](./imgs/cover_example.jpg)
+
+### Table of contents
+
+Add `zhihu-toc` entry to frontmatter, and ensure it is not empty, then table of content will be generated.
+
+For example, `zhihu-toc` can be `True` or `1`.
+
+If you don't add `zhihu-toc`, then the table of content will not be generated.
 
 ## Contribution
 
@@ -124,4 +131,10 @@ You can fork this repo to `vault/.obsidian/plugins`, make sure your NodeJS is at
 
 You can support me by star⭐ the repo!
 
-https://github.com/dongguaguaguagua/zhihu_obsidian/stargazers
+<a href="https://github.com/dongguaguaguagua/zhihu_obsidian/stargazers">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=dongguaguaguagua/zhihu_obsidian&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=dongguaguaguagua/zhihu_obsidian&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=dongguaguaguagua/zhihu_obsidian&type=Date" />
+ </picture>
+</a>

@@ -1,4 +1,11 @@
-import { Editor, MarkdownView, Plugin, Notice } from "obsidian";
+import {
+    App,
+    Editor,
+    MarkdownView,
+    Plugin,
+    type PluginManifest,
+    Notice,
+} from "obsidian";
 
 import { MentionSuggest } from "./member_mention";
 import * as login from "./login_service";
@@ -9,8 +16,17 @@ import { ZhihuSettingTab } from "./settings_tab";
 import { loadIcons } from "./icon";
 import { loadSettings } from "./settings";
 import * as open from "./open_service";
+import i18n, { type Lang } from "../locales";
+import { registerMenuCommands } from "./menu";
 
 export default class ZhihuObPlugin extends Plugin {
+    i18n: Lang;
+
+    constructor(app: App, manifest: PluginManifest) {
+        super(app, manifest);
+        this.i18n = i18n.current;
+    }
+
     async onload() {
         const settings = await loadSettings(this.app.vault);
         this.registerDomEvent(
@@ -23,10 +39,10 @@ export default class ZhihuObPlugin extends Plugin {
             true,
         );
         this.registerEditorSuggest(
-            new MentionSuggest(this.app, settings.restrictToZhihuTag),
+            new MentionSuggest(this.app, settings.restrictToZhihuFM),
         );
-
-        const loginNoticeStr = "您还未登录知乎，请先登录";
+        registerMenuCommands(this); // 监听右键菜单和文件菜单事件
+        const loginNoticeStr = this.i18n.notice.notLogin;
         loadIcons();
         this.addRibbonIcon("zhihu-icon", "Open Zhihu side view", async () => {
             if (await login.checkIsUserLogin(this.app.vault)) {
@@ -57,11 +73,11 @@ export default class ZhihuObPlugin extends Plugin {
         });
 
         this.addCommand({
-            id: "publish-current-file",
-            name: "Publish current file",
+            id: "publish-current-article",
+            name: "Publish current article",
             editorCallback: async (editor: Editor, view: MarkdownView) => {
                 if (await login.checkIsUserLogin(this.app.vault)) {
-                    await publish.publishCurrentFile(this.app);
+                    await publish.publishCurrentArticle(this.app);
                 } else {
                     new Notice(loginNoticeStr);
                 }

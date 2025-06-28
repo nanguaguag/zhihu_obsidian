@@ -9,35 +9,34 @@ import * as imageService from "./image_service";
 import { normalizeStr } from "./utilities";
 import { addPopularizeStr } from "./popularize";
 import { loadSettings } from "./settings";
+import i18n, { type Lang } from "../locales";
+import { fmtDate } from "./utilities";
 
-export async function publishCurrentFile(app: App) {
+const locale = i18n.current;
+
+export async function publishCurrentArticle(app: App) {
     const activeFile = app.workspace.getActiveFile();
     const vault = app.vault;
+    const settings = await loadSettings(vault);
     if (!activeFile) {
-        console.warn("No active file found");
+        console.error(locale.error.noActiveFileFound);
         return;
     }
     const fileCache = app.metadataCache.getFileCache(activeFile);
     const frontmatter = fileCache?.frontmatter;
     if (!frontmatter) {
-        new Notice("Zhihu on obsidian要求要添加文章属性");
+        new Notice(`${locale.notice.noFrontmatter}`);
         return;
     }
-    const tags = normalizeStr(frontmatter.tags);
-    const topics = normalizeStr(frontmatter.topics);
-    const hasZhihuTag = tags.includes("zhihu");
-    if (!hasZhihuTag) {
-        new Notice("Zhihu on obsidian要求标签包含zhihu");
-        return;
-    }
+    const topics = normalizeStr(frontmatter["zhihu-topics"]);
     if (topics.length === 0) {
-        new Notice("Zhihu on obsidian要求必须添加话题");
+        new Notice(`${locale.notice.noTopics}`);
         return;
     }
     // 这里链接属性缺失或者为空，都表明未发表文章
-    const status = publishStatus(frontmatter.link);
-    const title = frontmatter.title || "untitled";
-    const toc = !!frontmatter.toc;
+    const status = publishStatus(frontmatter["zhihu-link"]);
+    const title = frontmatter["zhihu-title"] || locale.untitled;
+    const toc = !!frontmatter["zhihu-toc"];
     const rawContent = await app.vault.read(activeFile);
     const rmFmContent = fm.removeFrontmatter(rawContent);
     // 获取文章的ID，如果未发表则新建一个。
@@ -47,25 +46,25 @@ export async function publishCurrentFile(app: App) {
             articleId = await newDraft(vault, title);
             break;
         case 1: // 已发表
-            articleId = frontmatter.link.replace(
+            articleId = frontmatter["zhihu-link"].replace(
                 "https://zhuanlan.zhihu.com/p/",
                 "",
             );
             break;
         case 2: // 未发表但已生成草稿
-            articleId = frontmatter.link.match(
+            articleId = frontmatter["zhihu-link"].match(
                 /^https:\/\/zhuanlan\.zhihu\.com\/p\/(\d+)(\/edit)?$/,
             )[1];
             break;
         case 3: // 无效链接
-            new Notice("无效链接！");
+            new Notice(`${locale.notice.linkInvalid}`);
             return;
         default:
-            new Notice("未知错误");
+            new Notice(`${locale.error.unknownError}`);
             break;
     }
     // 处理文章封面上传
-    const cover = frontmatter.cover;
+    const cover = frontmatter["zhihu-cover"];
     if (!(typeof cover === "undefined" || cover === null)) {
         const coverURL = await imageService.uploadCover(vault, cover);
         const patchBody = {
@@ -74,7 +73,7 @@ export async function publishCurrentFile(app: App) {
             delta_time: 30,
         };
         await patchDraft(vault, articleId, patchBody);
-        new Notice("封面上传成功！");
+        new Notice(`${locale.notice.coverUploadSuccess}`);
     }
     let transedImgContent = await imageService.processLocalImgs(
         vault,
@@ -84,7 +83,10 @@ export async function publishCurrentFile(app: App) {
         vault,
         transedImgContent,
     );
-    let zhihuHTML = await render.mdToZhihuHTML(transedImgContent);
+    let zhihuHTML = await render.mdToZhihuHTML(
+        transedImgContent,
+        settings.useZhihuHeadings,
+    );
     zhihuHTML = addPopularizeStr(zhihuHTML); // 加上推广文字
     const patchBody = {
         title: title,
@@ -106,14 +108,11 @@ export async function publishCurrentFile(app: App) {
                 await topicsUtil.topics2Draft(vault, articleId, res[0]);
             }
         } catch (err) {
-            console.error(
-                `Error auto-completing topic for tag "${topic}":`,
-                err,
-            );
+            console.error(locale.error.autoCompleteTopicFailed, topic, err);
         }
     }
     // 把文章投稿至问题
-    const toQuestion = frontmatter.question;
+    const toQuestion = frontmatter["zhihu-question"];
     if (toQuestion) {
         const questionId = extractQuestionId(toQuestion);
         if (questionId) {
@@ -126,23 +125,25 @@ export async function publishCurrentFile(app: App) {
         toc,
         status === 1,
     );
+
     const url = publishResult.publish.url;
     switch (status) {
-        case 0:
-        case 2:
-            await app.fileManager.processFrontMatter(
-                activeFile,
-                (frontmatter) => {
-                    frontmatter.link = url;
-                },
-            );
-            new Notice("发布文章成功！");
+        case 0: // 未发表
+        case 2: // 未发表但已生成草稿
+            await app.fileManager.processFrontMatter(activeFile, (fm) => {
+                fm["zhihu-link"] = url;
+                fm["zhihu-created-at"] = fmtDate(new Date());
+            });
+            new Notice(`${locale.notice.publishArticleSuccess}`);
             break;
-        case 1:
-            new Notice("更新文章成功！");
+        case 1: // 已发表
+            await app.fileManager.processFrontMatter(activeFile, (fm) => {
+                fm["zhihu-updated-at"] = fmtDate(new Date());
+            });
+            new Notice(`${locale.notice.updateArticleSuccess}`);
             break;
         default:
-            new Notice("未知错误");
+            new Notice(`${locale.error.unknownError}`);
             break;
     }
 }
@@ -150,6 +151,7 @@ export async function publishCurrentFile(app: App) {
 export async function createNewZhihuArticle(app: App) {
     const vault = app.vault;
     const workspace = app.workspace;
+
     let fileName = "untitled";
     let filePath = `${fileName}.md`;
     let counter = 1;
@@ -165,17 +167,16 @@ export async function createNewZhihuArticle(app: App) {
         const newFile = await vault.create(filePath, "");
         const defaultTitle = "untitled";
         const articleId = await newDraft(vault, defaultTitle);
-        await app.fileManager.processFrontMatter(newFile, (frontmatter) => {
-            frontmatter.tags = "zhihu";
-            frontmatter.title = defaultTitle;
-            frontmatter.topics = "";
-            frontmatter.link = `https://zhuanlan.zhihu.com/p/${articleId}/edit`;
+        await app.fileManager.processFrontMatter(newFile, (fm) => {
+            fm["zhihu-title"] = defaultTitle;
+            fm["zhihu-topics"] = "";
+            fm["zhihu-link"] = `https://zhuanlan.zhihu.com/p/${articleId}/edit`;
         });
         const leaf = workspace.getLeaf(false);
         await leaf.openFile(newFile);
         return filePath;
     } catch (error) {
-        console.error(`Error creating or modifying file: ${error}`);
+        console.error(locale.error.createModifyFileFailed, error);
         throw error;
     }
 }
@@ -223,10 +224,10 @@ async function newDraft(vault: Vault, title: string) {
             }),
         });
         const articleId = response.json.id;
-        new Notice(`获取文章ID成功`);
+        new Notice(`${locale.notice.getArticleIdSuccess}`);
         return articleId;
     } catch (error) {
-        new Notice(`生成新的草稿失败: ${error}`);
+        new Notice(`${locale.notice.generateDraftFailed},${error}`);
     }
 }
 
@@ -269,9 +270,9 @@ async function patchDraft(vault: Vault, id: string, patchBody: any) {
             method: "PATCH",
             body: JSON.stringify(patchBody),
         });
-        new Notice(`patch文章成功`);
+        new Notice(`${locale.notice.patchArticleSuccess}`);
     } catch (error) {
-        new Notice(`patch文章失败: ${error}`);
+        new Notice(`${locale.notice.patchArticleFailed},${error}`);
     }
 }
 
@@ -354,12 +355,15 @@ async function publishDraft(
                 },
             }),
         });
+        console.log("response:", response.json);
         if (response.json.message === "success") {
             const result = JSON.parse(response.json.data.result);
             return result;
+        } else {
+            new Notice(response.json.message);
         }
     } catch (error) {
-        new Notice(`发布文章失败: ${error}`);
+        new Notice(`${locale.notice.publishArticleFailed},${error}`);
     }
 }
 
@@ -409,9 +413,9 @@ async function checkQuestion(
                 question_token: questionId,
             }),
         });
-        new Notice(`添加回答成功`);
+        new Notice(`${locale.notice.publishToAnswerSuccess}`);
     } catch (error) {
-        new Notice(`添加回答失败: ${error}`);
+        new Notice(`${locale.notice.publishToAnswerFailed},${error}`);
     }
 }
 

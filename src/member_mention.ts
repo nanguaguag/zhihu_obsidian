@@ -10,7 +10,8 @@ import {
     TFile,
 } from "obsidian";
 import { loadSettings } from "./settings";
-
+import i18n, { type Lang } from "../locales";
+const locale = i18n.current;
 // 定义 autoCompletePeople 返回的数据结构
 interface PeopleEntry {
     type: string;
@@ -67,7 +68,7 @@ export async function autoCompletePeople(
             empty: entry[7],
         }));
     } catch (error) {
-        new Notice(`获取知友失败: ${error}`);
+        new Notice(`${locale.notice.fetchMembersFailed}`);
         return [];
     }
 }
@@ -85,11 +86,14 @@ export class MentionSuggest extends EditorSuggest<MentionSuggestion> {
         editor: Editor,
         file: TFile | null,
     ): EditorSuggestTriggerInfo | null {
-        // Check if the note has a 'zhihu' tag in frontmatter when restrictToZhihuTag is enabled
+        // Check if note has 'zhihu-' str in frontmatter when restrictToZhihuFM is enabled
         if (this.shouldRestrict && file) {
             const metadata = this.app.metadataCache.getFileCache(file);
-            const tags = metadata?.frontmatter?.tags || [];
-            if (!tags.includes("zhihu")) {
+            const fm = metadata?.frontmatter || [];
+            const hasZhihuKey = Object.keys(fm).some((key) =>
+                key.startsWith("zhihu-"),
+            );
+            if (!hasZhihuKey) {
                 return null;
             }
         }

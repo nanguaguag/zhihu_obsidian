@@ -4,18 +4,24 @@ import { loadData, updateData } from "./data";
 // Define the structure of the settings
 interface ZhihuSettings {
     user_agent: string;
-    restrictToZhihuTag: boolean;
+    restrictToZhihuFM: boolean;
     sendReadToZhihu: boolean;
     recommendCount: number;
+    useZhihuHeadings: boolean;
+    useImgNameDefault: boolean;
+    manualCookieEdit: boolean;
 }
 
 // Default settings in case none exist in zhihu-data.json
 const DEFAULT_SETTINGS: ZhihuSettings = {
     user_agent:
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36",
-    restrictToZhihuTag: false,
+    restrictToZhihuFM: false,
     sendReadToZhihu: true,
     recommendCount: 7,
+    useZhihuHeadings: true,
+    useImgNameDefault: false,
+    manualCookieEdit: false,
 };
 
 /**
