@@ -1,6 +1,8 @@
 export default {
     ui: {
         enterQuestionLink: "请输入知乎问题链接",
+        enterZhihuLink: "请输入知乎链接",
+        enterZhihuLinkPlaceholder: "您可以输入知乎问题、文章、回答、想法的链接",
         forExample: "例如：",
         scanLoginToZhihu: "扫码登录知乎",
         generateQRCodeFailed: "生成二维码失败",
@@ -16,6 +18,8 @@ export default {
         publishCurrentAnswer: "发布当前回答",
         publishCurrentArticle: "发布当前文章",
         cancel: "取消",
+        confirmOpen: "确认打开",
+        notFound: "未找到",
     },
     notice: {
         notLogin: "你已登出，请先登录。",
@@ -53,8 +57,8 @@ export default {
         QRCodeRefreshed: "二维码已刷新",
         loadComplete: "加载完成",
         zseckLoadFailed: "登录失败！无法加载 zse-ck 脚本，请检查网络连接并重试",
-        zseckFetchFailed:
-            "登录失败！无法获取 zse-ck cookie，请检查网络连接并重试",
+        zseckFetchFailed: "正在监听 cookies，请耐心等待...",
+        refreshCookiesSuccess: "刷新 cookie 成功！",
         fetchInitCookiesSuccess: "获取初始 cookies 成功！",
         fetchInitCookiesFailed: "获取初始 cookies 失败！",
         redirectionToSigninFailed: "重定向到登录页失败",
@@ -80,6 +84,16 @@ export default {
         giveTopicSuccess: "添加话题成功！",
         giveTopicFailed: "添加话题失败：",
         openZhihuSideFailed: "打开知乎侧边栏失败：无法创建侧边面板。",
+        typstNotFound: "未找到 Typst",
+        typstPathEmpty: "Typst 路径为空",
+        typstVersion: "Typst 版本",
+        inlineTypstConvertFailed:
+            "Typst 转换行内公式失败，\n请检查语法是否正确",
+        displayTypstConvertFailed:
+            "Typst 转换行间公式失败，\n请检查语法是否正确",
+        typstConvertImgFailed: "Typst 转换图片失败，\n请检查语法是否正确",
+        enterPathInstruction: "请在设置中添加 Typst 路径",
+        imgSearchFailed: "找不到图片",
     },
     error: {
         unknownError: "未知错误",
@@ -101,12 +115,21 @@ export default {
         htmlToMdConvertionFailed: "HTML 转 Markdown 失败：",
         saveUseZhihuHeadingFailed: "保存 useZhihuHeading 设置失败：",
         saveUseImgNameFailed: "Failed to save useImgNameDefault setting:",
+        identifySVGFailed: "识别 SVG 原始缩放比例失败。",
+        fetchContextFailed: "获取 Canvas 2D 上下文失败。",
+        generateBlobFailed: "从 Canvas 生成 Blob 失败。",
+        loadSVGFailed: "加载 SVG 失败：",
+        uploadMermaidImgFailed: "上传 Mermaid 图像到知乎失败。",
+        errorHandlingMermaid: "处理 Mermaid 图时出错：",
+        detectTypstVersionFailed: "检测 Typst 版本时出错",
     },
     settings: {
         accountTitle: "我的账户",
         accountTitleDesc: "管理您的知乎登录状态",
         loginButtonText: "登录",
         logoutButtonText: "登出",
+        refreshLoginButtonText: "刷新登录状态",
+        newLoginButtonText: "登录新账号",
         userAgent: "用户代理",
         userAgentDesc: "在知乎API请求中自定义用户代理",
         userAgentPlaceholder: "请输入自定义用户代理",
@@ -135,5 +158,51 @@ export default {
         editorSyntaxInvalid: "语法错误，未保存更改",
         editorRefreshTooltip: "刷新登录状态",
         editorRefreshFailedNotice: "刷新登录状态失败！缺少必要的 Cookies",
+        autoOpenZhihuLink: "自动打开知乎链接",
+        autoOpenZhihuLinkDesc:
+            "如果启用，那么点击知乎链接时，链接将在 Obsidian 中自动打开。(需要重启插件)",
+        turnImgOffline: "打开知乎链接时将图片离线保存",
+        turnImgOfflineDesc:
+            "如果启用，那么图片会被下载并储存在 zhihu 文件夹中，图片名就是它的 md5 值",
+        mermaidScale: "Mermaid 图像清晰度",
+        mermaidScaleDesc: "调整 Mermaid 图像的清晰度",
+        UltraHD: "超清",
+        HD: "高清",
+        LR: "低清",
+        addPopularStr: "添加推广语句",
+        addPopularStrDesc:
+            "在文章末尾添加推广语句：本文由Zhihu on Obsidian创作并发布",
+        closePopularStrWarning:
+            "**您确认要关闭吗？**\n制作插件不易，如果插件对您有帮助的话，不妨动动手指支持一下作者吧！\n\
+* 点赞作者的知乎文章：https://zhuanlan.zhihu.com/p/1901622331102696374\n\
+* 给插件的 GitHub 仓库打个星星：https://github.com/dongguaguaguagua/zhihu_obsidian\
+",
+        closePopularStrWarningButtonText: "关闭推广语句",
+        typstMode: "Typst 模式 (实验性)",
+        typstModeDesc: "允许您将 Typst 公式以图片或公式的形式发表到知乎",
+        typstModeWarning:
+            "**这是一个实验性功能**\n\
+* 为了保证更好的 Typst 编辑体验，推荐安装 [Typsidian](https://github.com/fogsong233/Typsidian) 或 [Wypst](obsidian://show-plugin?id=wypst) 插件。\n\
+* 本功能需要您电脑上已安装了 [Typst](https://github.com/typst/typst) 命令行程序，\n\
+* 由于这是一个实验性功能，如果您遇到了问题或者bug，可以在GitHub发 [issue](https://github.com/dongguaguaguagua/zhihu_obsidian/issues) 给我。\n\
+",
+        typstVersion: "Typst 版本：",
+        typstPathDesc: "请输入 Typst 可执行文件的路径",
+        typstPathToolTip: "检测 Typst 路径并显示版本",
+        displayMathSetting: "对于行间公式的处理",
+        displayMathSettingDesc:
+            "如果一些复杂的 Typst 公式转成 LaTeX，可能会导致公式无法正常显示",
+        displayMathTransPic: "转换为图片",
+        displayMathTransTex: "转换为LaTeX",
+        typstPicPPI: "Typst 行间公式图片清晰度",
+        typstPicPPIDesc: "设置行间公式图片的清晰度，单位为像素每英寸(PPI)",
+        typstRenderSetting: "需要渲染的 Typst 代码块语言",
+        typstRenderSettingDesc:
+            "如果您需要将一部分 Typst 代码渲染成图片，可以将包含 Typst 代码的代码块设置成该语言。",
+        typstPresetStyle: "Typst 行间公式预设样式",
+        typstPresetStyleDesc:
+            "插件将使用该样式转换您的公式，具体是将行间公式附加在样式后面。\
+如果您将样式删除，会导致每个行间公式都有A4纸大小。您也可以在这里定义函数或公式字体等更多内容。\
+需要注意的是，编辑器中不会检测您的 Typst 语法是否正确，请确保设置的是正确、可编译的 Typst。",
     },
 };

@@ -4,15 +4,13 @@ import * as fm from "./frontmatter";
 import * as render from "./custom_render";
 import { v4 as uuidv4 } from "uuid";
 import * as cookies from "./cookies";
-import * as imageService from "./image_service";
-import { normalizeStr } from "./utilities";
 import { addPopularizeStr } from "./popularize";
 import { loadSettings } from "./settings";
 import { fmtDate } from "./utilities";
-
 import i18n, { type Lang } from "../locales";
+import { parseDisclaimer } from "./disclaimer";
 
-const locale = i18n.current;
+const locale: Lang = i18n.current;
 
 export class ZhihuQuestionLinkModal extends Modal {
     inputEl: TextComponent;
@@ -55,10 +53,11 @@ export class ZhihuQuestionLinkModal extends Modal {
     }
 }
 
-export async function publishCurrentAnswer(app: App) {
+export async function publishCurrentAnswer(app: App, toDraft = false) {
     const activeFile = app.workspace.getActiveFile();
     const locale = i18n.current;
-    const settings = await loadSettings(app.vault);
+    const vault = app.vault;
+    const settings = await loadSettings(vault);
     if (!activeFile) {
         console.error(locale.error.noActiveFileFound);
         return;
@@ -77,7 +76,7 @@ export async function publishCurrentAnswer(app: App) {
     const questionId = extractQuestionId(questionLink);
     const status = publishStatus(frontmatter["zhihu-link"]);
     const toc = !!frontmatter["zhihu-toc"];
-
+    const disclaimer = frontmatter["zhihu-disclaimer"];
     const rawContent = await app.vault.read(activeFile);
     const rmFmContent = fm.removeFrontmatter(rawContent);
 
@@ -98,21 +97,10 @@ export async function publishCurrentAnswer(app: App) {
             new Notice(`${locale.error.unknownError}`);
             return;
     }
-
-    let transedImgContent = await imageService.processLocalImgs(
-        app.vault,
-        rmFmContent,
-    );
-    transedImgContent = await imageService.processOnlineImgs(
-        app.vault,
-        transedImgContent,
-    );
-    let zhihuHTML = await render.mdToZhihuHTML(
-        transedImgContent,
-        settings.useZhihuHeadings,
-    );
-    zhihuHTML = addPopularizeStr(zhihuHTML);
-
+    let zhihuHTML = await render.remarkMdToHTML(app, rmFmContent);
+    if (settings.popularize) {
+        zhihuHTML = addPopularizeStr(zhihuHTML);
+    }
     const patchBody = {
         content: zhihuHTML,
         draft_type: "normal",
@@ -136,21 +124,24 @@ export async function publishCurrentAnswer(app: App) {
 
     await patchDraft(app.vault, questionId!, answerId, patchBody);
 
+    if (toDraft) return; // 如果是发布为草稿，就不需要下面的步骤了
+
     const publishResult = await publishAnswerDraft(
         app.vault,
         questionId!,
         answerId,
         toc,
         zhihuHTML,
+        disclaimer,
         status === 1,
     );
     answerId = publishResult.publish.id;
+    const url = `https://www.zhihu.com/question/${questionId}/answer/${answerId}`;
 
     switch (status) {
         case 0:
             await app.fileManager.processFrontMatter(activeFile, (fm) => {
-                fm["zhihu-link"] =
-                    `https://www.zhihu.com/question/${questionId}/answer/${answerId}`;
+                fm["zhihu-link"] = url;
                 fm["zhihu-created-at"] = fmtDate(new Date());
             });
             new Notice(`${locale.notice.publishAnswerSuccess}`);
@@ -223,8 +214,11 @@ async function publishAnswerDraft(
     answerId: string,
     toc: boolean,
     html: string,
+    disclaimer: unknown,
     isPublished: boolean,
 ) {
+    const { type: disclaimerType, status: disclaimerStatus } =
+        parseDisclaimer(disclaimer);
     try {
         const data = await dataUtil.loadData(vault);
         const settings = await loadSettings(vault);
@@ -304,8 +298,8 @@ async function publishAnswerDraft(
                         draft_type: "normal",
                     },
                     creationStatement: {
-                        disclaimer_status: "close",
-                        disclaimer_type: "none",
+                        disclaimer_status: disclaimerStatus,
+                        disclaimer_type: disclaimerType,
                     },
                     commercialReportInfo: {
                         isReport: 0,
@@ -334,8 +328,8 @@ async function publishAnswerDraft(
 }
 
 export async function createNewZhihuAnswer(app: App, questionLink: string) {
-    const vault = app.vault;
-    const workspace = app.workspace;
+    const { vault, workspace, fileManager } = app;
+
     let fileName = "untitled";
     let filePath = `${fileName}.md`;
     let counter = 1;
@@ -349,7 +343,7 @@ export async function createNewZhihuAnswer(app: App, questionLink: string) {
 
     try {
         const newFile = await vault.create(filePath, "");
-        await app.fileManager.processFrontMatter(newFile, (fm) => {
+        await fileManager.processFrontMatter(newFile, (fm) => {
             fm["zhihu-question"] = questionLink;
         });
         const leaf = workspace.getLeaf(false);
@@ -358,6 +352,34 @@ export async function createNewZhihuAnswer(app: App, questionLink: string) {
     } catch (error) {
         console.error(locale.error.createModifyFileFailed, error);
         throw error;
+    }
+}
+export async function convertToNewZhihuAnswer(app: App, questionLink: string) {
+    const vault = app.vault;
+    const workspace = app.workspace;
+
+    // 获取当前活动文件
+    const activeFile = workspace.getActiveFile();
+    if (!activeFile) {
+        new Notice("未找到当前活动文件");
+        return;
+    }
+
+    try {
+        // 给当前文件添加/更新 frontmatter 信息
+        await app.fileManager.processFrontMatter(activeFile, (fm) => {
+            fm["zhihu-question"] = questionLink;
+        });
+
+        // 重新打开当前文件以刷新显示
+        const leaf = workspace.getLeaf(false);
+        await leaf.openFile(activeFile);
+
+        new Notice("已将当前文件转换为知乎回答格式");
+        return activeFile.path;
+    } catch (error) {
+        console.error(locale.error.createModifyFileFailed, error);
+        new Notice("添加知乎回答元信息失败，请重试。");
     }
 }
 

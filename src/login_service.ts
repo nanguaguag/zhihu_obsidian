@@ -2,11 +2,11 @@ import { App, Vault, Notice, Modal, requestUrl } from "obsidian";
 import QRCode from "qrcode";
 import * as dataUtil from "./data";
 import * as cookieUtil from "./cookies";
-import { loadSettings } from "./settings";
+import { loadSettings, saveSettings } from "./settings";
 import i18n, { type Lang } from "../locales";
 import en from "locales/en";
 import { toCurl } from "./utilities";
-const locale = i18n.current;
+const locale: Lang = i18n.current;
 
 export class QRCodeModal extends Modal {
     private link: string;
@@ -119,115 +119,161 @@ export async function zhihuQRcodeLogin(app: App) {
     });
 }
 
-export async function zhihuWebLogin(app: App) {
+export async function zhihuWebLogin(app: App, isNew = false): Promise<void> {
     const vault = app.vault;
     const remote = window.require("@electron/remote");
     const { BrowserWindow, session } = remote;
+    const settings = await loadSettings(vault);
 
-    // 清理环境：cookie、缓存、storage
-    await session.defaultSession.clearStorageData();
-    await session.defaultSession.clearCache();
-    const oldCookies = await session.defaultSession.cookies.get({
-        url: "https://www.zhihu.com",
+    // 为“无痕”登录窗创建独立的非持久分区（注意：没有 'persist:' 前缀）
+    // 如果是新的登录窗口，则创建一个新分区，否则使用已有的，已经登录账号的分区。
+    const newPartition = `zhihu-login-${new Date().getTime()}`;
+    const partition = isNew ? newPartition : settings.partition;
+    console.log("partition:", partition);
+    const ses = session.fromPartition(partition); // 非持久化，会在窗口全关后销毁
+
+    // 只清理这个分区，避免：
+    // DOMException: Failed to execute 'transaction' on 'IDBDatabase':
+    // The database connection is closing.
+    await ses.clearStorageData({
+        origin: "https://www.zhihu.com",
+        storages: ["cookies", "localstorage", "serviceworkers", "cachestorage"],
     });
-    await Promise.all(
-        oldCookies.map((c: { name: any }) =>
-            session.defaultSession.cookies.remove(
-                "https://www.zhihu.com",
-                c.name,
-            ),
-        ),
-    );
 
-    // 标记 zse-ck 脚本加载
-    let loadedZse = false;
-    session.defaultSession.webRequest.onCompleted(
-        { urls: ["https://static.zhihu.com/zse-ck/v4/*"] },
-        () => {
-            loadedZse = true;
-        },
-    );
+    return new Promise<void>((resolve, reject) => {
+        const win = new BrowserWindow({
+            width: 800,
+            height: 600,
+            webPreferences: {
+                nodeIntegration: false,
+                contextIsolation: true,
+                partition,
+            },
+        });
 
-    // 模拟浏览器请求头
-    session.defaultSession.webRequest.onBeforeSendHeaders(
-        { urls: ["https://*.zhihu.com/*"] },
-        (details: any, callback: any) => {
-            const h = details.requestHeaders;
-            h["Referer"] = h["Referer"] || "https://www.zhihu.com/";
-            h["Upgrade-Insecure-Requests"] = "1";
-            h["Accept-Language"] = "zh-CN,zh;q=0.9";
-            callback({ cancel: false, requestHeaders: h });
-        },
-    );
+        const loginUrl = "https://www.zhihu.com/signin";
+        const exampleQuestionUrl = "https://www.zhihu.com/question/19550225";
 
-    // 创建窗口并设置 UA
-    const win = new BrowserWindow({
-        width: 800,
-        height: 600,
-        webPreferences: { nodeIntegration: false, contextIsolation: true },
-    });
-    win.webContents.setUserAgent(
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
-    );
+        win.loadURL(loginUrl).catch(reject);
 
-    const loginUrl = "https://www.zhihu.com/signin";
-    const exampleQuestionUrl = "https://www.zhihu.com/question/19550225";
-    await win.loadURL(loginUrl);
+        win.webContents.on("did-finish-load", async () => {
+            try {
+                const url = win.webContents.getURL();
 
-    win.webContents.on("did-finish-load", async () => {
-        const url = win.webContents.getURL();
-        new Notice(`${locale.notice.loadComplete + url}`);
-        // 登录页面完成，用户输入完毕后可能跳转到首页
-        if (url === "https://www.zhihu.com/") {
-            // 转到具体问题页面，触发 zse-ck 脚本加载
-            await win.loadURL(exampleQuestionUrl);
-            return;
-        }
+                if (url === "https://www.zhihu.com/") {
+                    await win.loadURL(exampleQuestionUrl);
+                    return;
+                }
 
-        // 问题页面加载完成
-        if (url.startsWith(exampleQuestionUrl)) {
-            // 检查 zse-ck 脚本是否加载
-            if (!loadedZse) {
-                new Notice(`${locale.notice.zseckLoadFailed}`);
-                return;
+                if (url.startsWith(exampleQuestionUrl)) {
+                    // 从“无痕分区”的 cookies 取值
+                    const cookies = await ses.cookies.get({
+                        url: "https://www.zhihu.com",
+                    });
+                    const zse = cookies.find((c: any) => c.name === "__zse_ck");
+                    if (!zse) {
+                        new Notice(`${locale.notice.zseckFetchFailed}`);
+                        return;
+                    }
+                    new Notice(`${locale.notice.loginSuccess}`);
+                    // 将获取的 cookie 转换成 JSON 形式
+                    const cookieObj: Record<string, string> = {};
+                    cookies.forEach((c: { name: string; value: string }) => {
+                        cookieObj[c.name] = c.value;
+                    });
+
+                    await dataUtil.updateData(vault, { cookies: cookieObj });
+                    await getUserInfo(vault);
+
+                    if (isNew) {
+                        await saveSettings(vault, { partition: newPartition });
+                    }
+
+                    win.close();
+                    resolve();
+                }
+            } catch (e) {
+                reject(e);
             }
+        });
 
-            // 获取 cookies
-            const cookies = await session.defaultSession.cookies.get({
-                url: "https://www.zhihu.com",
-            });
-            const zse = cookies.find(
-                (c: { name: string }) => c.name === "__zse_ck",
-            );
-            if (!zse) {
-                new Notice(`${locale.notice.zseckFetchFailed}`);
-                return;
-            }
-            new Notice(`${locale.notice.loginSuccess}`);
-
-            // convert cookies to {string: string} format
-            const cookieObj: { [key: string]: string } = {};
-            cookies.forEach((c: { name: string; value: string }) => {
-                cookieObj[c.name] = c.value;
-            });
-            // save cookies to vault
-            await dataUtil.updateData(vault, { cookies: cookieObj });
-            await getUserInfo(vault);
-
-            win.close();
-        }
-    });
-
-    win.on("closed", () => {
-        session.defaultSession.webRequest.onCompleted(null as any);
-        session.defaultSession.webRequest.onBeforeSendHeaders(null as any);
+        win.on("closed", () => reject(new Error("用户关闭了登录窗口")));
     });
 }
 
+// 这个函数用于自动刷新zse_ck cookie，因为它会定时失效
+export async function zhihuRefreshZseCookies(app: App): Promise<void> {
+    const vault = app.vault;
+    const remote = window.require("@electron/remote");
+    const { BrowserWindow, session } = remote;
+    const settings = await loadSettings(vault);
+
+    // 为“无痕”登录窗创建独立的非持久分区（注意：没有 'persist:' 前缀）
+    const partition = settings.partition;
+    const ses = session.fromPartition(partition); // 非持久化，会在窗口全关后销毁
+
+    // 只清理这个分区，避免：
+    // DOMException: Failed to execute 'transaction' on 'IDBDatabase':
+    // The database connection is closing.
+    await ses.clearStorageData({
+        origin: "https://www.zhihu.com",
+        storages: ["cookies", "localstorage", "serviceworkers", "cachestorage"],
+    });
+
+    return new Promise<void>((resolve, reject) => {
+        const win = new BrowserWindow({
+            width: 100,
+            height: 100,
+            webPreferences: {
+                nodeIntegration: false,
+                contextIsolation: true,
+                partition,
+            },
+        });
+
+        const exampleQuestionUrl = "https://www.zhihu.com/question/19550225";
+
+        win.loadURL(exampleQuestionUrl).catch(reject);
+
+        win.webContents.on("did-finish-load", async () => {
+            try {
+                const url = win.webContents.getURL();
+
+                if (url.startsWith(exampleQuestionUrl)) {
+                    // 从“无痕分区”的 cookies 取值
+                    // 此时只会有三个cookie：_xsrf、BEC、__zse_ck
+                    // 最重要的是__zse_ck cookie
+                    const cookies = await ses.cookies.get({
+                        url: "https://www.zhihu.com",
+                    });
+                    const zse = cookies.find((c: any) => c.name === "__zse_ck");
+                    if (!zse) {
+                        new Notice(`${locale.notice.zseckFetchFailed}`);
+                        return;
+                    }
+                    // 将获取的 cookie 转换成 JSON 形式
+                    const cookieObj: Record<string, string> = {};
+                    cookies.forEach((c: { name: string; value: string }) => {
+                        cookieObj[c.name] = c.value;
+                    });
+
+                    await dataUtil.updateData(vault, { cookies: cookieObj });
+                    new Notice(`${locale.notice.refreshCookiesSuccess}`);
+
+                    win.close();
+                    resolve();
+                }
+            } catch (e) {
+                reject(e);
+            }
+        });
+
+        win.on("closed", () => reject(new Error("用户关闭了登录窗口")));
+    });
+}
 export async function checkIsUserLogin(vault: Vault) {
     const data = await dataUtil.loadData(vault);
     if (data && "userInfo" in data && data.userInfo) {
-        new Notice(`${locale.notice.welcome},${data.userInfo.name}`);
         return true;
     } else {
         return false;
@@ -611,7 +657,7 @@ export async function getUserInfo(vault: Vault) {
         });
         const new_BEC = cookieUtil.getCookiesFromHeader(response);
         const userInfo = response.json;
-        new Notice(`${locale.notice.welcome},${userInfo.name}`);
+        new Notice(`${locale.notice.welcome} ${userInfo.name}`);
         await dataUtil.updateData(vault, { cookies: new_BEC });
         await dataUtil.updateData(vault, { userInfo: userInfo });
     } catch (error) {

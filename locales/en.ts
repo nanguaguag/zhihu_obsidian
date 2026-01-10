@@ -2,6 +2,9 @@ export default {
     untitled: "Untitled",
     ui: {
         enterQuestionLink: "Please enter Zhihu question link",
+        enterZhihuLink: "Please enter Zhihu link",
+        enterZhihuLinkPlaceholder:
+            "You can enter Zhihu Answer, Question, Article and Pin link",
         forExample: "Example:",
         scanLoginToZhihu: "Scan to login Zhihu",
         generateQRCodeFailed: "Failed to generate QRCode",
@@ -17,6 +20,8 @@ export default {
         publishCurrentAnswer: "publish current answer",
         publishCurrentArticle: "publish current article",
         cancel: "Cancel",
+        confirmOpen: "Confirm to open",
+        notFound: "Not found",
     },
     notice: {
         notLogin: "You are logout, please login first.",
@@ -55,8 +60,8 @@ export default {
         loadComplete: "Load complete",
         zseckLoadFailed:
             "Login failed! Unable to load zse-ck script, please check your network connection and retry",
-        zseckFetchFailed:
-            "Login failed! Unable to fetch zse-ck cookie, please check your network connection and retry",
+        zseckFetchFailed: "Listening for cookies, please wait...",
+        refreshCookiesSuccess: "Refresh cookies success!",
         fetchInitCookiesSuccess: "Fetch initial cookies success!",
         fetchInitCookiesFailed: "Failed to fetch initial cookies!",
         redirectionToSigninFailed: "Failed to redirect to sign in",
@@ -83,6 +88,17 @@ export default {
         giveTopicFailed: "Failed to give topic:",
         openZhihuSideFailed:
             "Failed to open Zhihu sides: unable to create a sidebar leaf.",
+        typstNotFound: "Typst not found",
+        typstPathEmpty: "Typst path is empty",
+        typstVersion: "Typst Version",
+        inlineTypstConvertFailed:
+            "Failed to convert inline Typst.\n Please check the syntax",
+        displayTypstConvertFailed:
+            "Failed to convert display Typst.\n Please check the syntax",
+        typstConvertImgFailed:
+            "Failed to convert Typst image.\n Please check the syntax",
+        enterPathInstruction: "Please enter Typst path in settings",
+        imgSearchFailed: "cannot find image",
     },
     error: {
         unknownError: "Unknown error",
@@ -104,12 +120,22 @@ export default {
         htmlToMdConvertionFailed: "HTML to Markdown conversion failed:",
         saveUseZhihuHeadingFailed: "Failed to save useZhihuHeading setting:",
         saveUseImgNameFailed: "Failed to save useImgNameDefault setting:",
+        identifySVGFailed: "Failed to identify SVG original scale.",
+        fetchContextFailed: "Failed to fetch Canvas 2D context.",
+        generateBlobFailed: "Failed to generate Blob from Canvas",
+        loadSVGFailed: "Failed to load SVG:",
+        uploadMermaidImgFailed: "Failed to upload Mermaid image to Zhihu.",
+        errorHandlingMermaid: "Error handling Mermaid diagram:",
+        detectTypstVersionFailed:
+            "Error occurred while detecting Typst version",
     },
     settings: {
         accountTitle: "My account",
         accountTitleDesc: "Manage your Zhihu login status",
         loginButtonText: "Log in",
         logoutButtonText: "Log out",
+        refreshLoginButtonText: "Refresh Login Status",
+        newLoginButtonText: "Log in with New Account",
         userAgent: "User agent",
         userAgentDesc: "Custom user agent for Zhihu API requests",
         userAgentPlaceholder: "Enter custom user agent",
@@ -142,5 +168,53 @@ export default {
         editorRefreshTooltip: "Refresh login state",
         editorRefreshFailedNotice:
             "Refresh login state failed! Missing necessary cookies.",
+        autoOpenZhihuLink: "Auto open Zhihu link",
+        autoOpenZhihuLinkDesc:
+            "If this enabled, Zhihu link will be opened in Obsidian automatically when you click it. (Plugin reload required)",
+        turnImgOffline: "Save images offline when opening Zhihu links",
+        turnImgOfflineDesc:
+            "If enabled, images will be downloaded and stored in the zhihu folder, with filenames set to their MD5 hashes",
+        mermaidScale: "Mermaid image clarity",
+        mermaidScaleDesc: "Adjust the clarity of Mermaid images",
+        UltraHD: "Ultra High Definition",
+        HD: "High Definition",
+        LR: "Low Resolution",
+        addPopularStr: "Add promotional statement",
+        addPopularStrDesc:
+            "Add a promotional statement at the end of the article: This article was created and published by Zhihu on Obsidian",
+        closePopularStrWarning:
+            "**Are you sure you want to turn it off?**\nCreating plugins is not easy. If this plugin has been helpful to you, consider supporting the author!\n\
+* Like the author's Zhihu article: https://zhuanlan.zhihu.com/p/1901622331102696374\n\
+* Star the plugin's GitHub repository: https://github.com/dongguaguaguagua/zhihu_obsidian\
+        ",
+        closePopularStrWarningButtonText: "Turn off promotional statement",
+        typstMode: "Typst Mode (Experimental)",
+        typstModeDesc:
+            "Allows you to publish Typst formulas to Zhihu as images or formulas",
+        typstModeWarning:
+            "**This is an experimental feature**\n\
+* For a better Typst editing experience, it is recommended to install the [Typsidian](https://github.com/fogsong233/Typsidian) or [Wypst](obsidian://show-plugin?id=wypst) plugin.\n\
+* This feature requires that the [Typst](https://github.com/typst/typst) command-line program is installed on your computer.\n\
+* Since this is an experimental feature, if you encounter any issues or bugs, you can submit an [issue](https://github.com/dongguaguaguagua/zhihu_obsidian/issues) on GitHub.\n\
+",
+        typstVersion: "Typst Version:",
+        typstPathDesc: "Please enter the path to the Typst executable file",
+        typstPathToolTip: "Detect Typst path and display version",
+        displayMathSetting: "Handling of display (block) formulas",
+        displayMathSettingDesc:
+            "If some complex Typst formulas are converted to LaTeX, it may cause the formulas to fail to render properly",
+        displayMathTransPic: "Convert to Image",
+        displayMathTransTex: "Convert to LaTeX",
+        typstPicPPI: "Typst Display Formula Image Resolution",
+        typstPicPPIDesc:
+            "Set the resolution of display formula images, in pixels per inch (PPI)",
+        typstRenderSetting: "Typst code block language to render",
+        typstRenderSettingDesc:
+            "If you need to render certain Typst code as images, set the code block containing the Typst code to this language.",
+        typstPresetStyle: "Typst Display Formula Preset Style",
+        typstPresetStyleDesc:
+            "The plugin will use this style to convert your formulas, specifically by appending display formulas after the style.\
+If you delete the style, each display formula will have the size of an A4 page. You can also define functions, formula fonts, and more here.\
+Note that the editor will not check whether your Typst syntax is correct; please ensure the style is valid and compilable Typst.",
     },
 };

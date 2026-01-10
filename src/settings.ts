@@ -3,6 +3,7 @@ import { loadData, updateData } from "./data";
 
 // Define the structure of the settings
 interface ZhihuSettings {
+    partition: string;
     user_agent: string;
     restrictToZhihuFM: boolean;
     sendReadToZhihu: boolean;
@@ -10,10 +11,22 @@ interface ZhihuSettings {
     useZhihuHeadings: boolean;
     useImgNameDefault: boolean;
     manualCookieEdit: boolean;
+    autoOpenZhihuLink: boolean;
+    mermaidScale: number;
+    popularize: boolean;
+    typstMode: boolean;
+    typstCliPath: string;
+    typstImgPPI: number;
+    typstRenderLang: string;
+    typstPresetStyle: string;
+    typstFallbackToTeX: boolean;
+    typstDisplayToTeX: boolean;
+    turnImgOffline: boolean;
 }
 
 // Default settings in case none exist in zhihu-data.json
 const DEFAULT_SETTINGS: ZhihuSettings = {
+    partition: "zhihu-login",
     user_agent:
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36",
     restrictToZhihuFM: false,
@@ -22,6 +35,18 @@ const DEFAULT_SETTINGS: ZhihuSettings = {
     useZhihuHeadings: true,
     useImgNameDefault: false,
     manualCookieEdit: false,
+    autoOpenZhihuLink: true,
+    mermaidScale: 3,
+    popularize: true,
+    typstMode: false,
+    typstCliPath: "",
+    typstImgPPI: 300,
+    typstRenderLang: "typrender",
+    typstPresetStyle:
+        "#set page(width: auto, height: auto, margin:(x: 40pt, y: 10pt))",
+    typstFallbackToTeX: true,
+    typstDisplayToTeX: false,
+    turnImgOffline: true,
 };
 
 /**

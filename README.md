@@ -4,6 +4,24 @@
 </picture>
 <h1>Zhihu on Obsidian</h1>
 
+<p align="center">
+<a href="https://github.com/dongguaguaguagua/zhihu_obsidian/actions">
+<img src="https://img.shields.io/github/actions/workflow/status/dongguaguaguagua/zhihu_obsidian/ci.yml?&branch=master">
+</a>
+<a href="https://github.com/dongguaguaguagua/zhihu_obsidian/releases">
+<img src="https://img.shields.io/github/v/release/dongguaguaguagua/zhihu_obsidian?&sort=semver">
+</a>
+<a href="https://github.com/dongguaguaguagua/zhihu_obsidian/releases">
+<img src="https://img.shields.io/github/downloads/dongguaguaguagua/zhihu_obsidian/total">
+</a>
+<a href="https://github.com/dongguaguaguagua/zhihu_obsidian?tab=0BSD-1-ov-file#0BSD-1-ov-file">
+<img src="https://img.shields.io/github/license/dongguaguaguagua/zhihu_obsidian">
+</a>
+<a href="https://zhihu.melonhu.cn">
+<img src="https://img.shields.io/badge/doc-cn-blue">
+</a>
+</p>
+
 [中文 README](./README_CN.md)
 
 </div>
@@ -19,11 +37,15 @@ This plugin allows you publish your markdown file directly to [Zhihu](https://ww
 
 ## Usage
 
+### Install
+
+Search `Zhihu` in community plugin, click the first plugin and install.
+
 ### Login to Zhihu
 
-You can login to Zhihu by the command `Zhihu: QRCode login`, then you will see a QRCode. Open Zhihu app and scan it, the plugin will fetch all cookies and user data automatically. (**The plugin will never, ever upload your information**)
+You can login to Zhihu by the command `Zhihu: Web login`, then you will see a web login page. Open Zhihu app and scan it, the plugin will fetch all cookies and user data automatically. (**The plugin will never, ever upload your information**)
 
-![image-20250503144240817](./imgs/QRCode.png)
+![image-20250503144240817](./imgs/zhihu-weblogin.jpg)
 
 Open the `settings->Zhihu Obsidian`, an account and avatar indicates that the login is successful.
 
@@ -53,7 +75,7 @@ Open command palette, type `Zhihu: Create new answer`, the plugin will ask you t
 
 There are no properties you should fulfill, just type your thoughts or experience and run command `Zhihu: Publish current answer`. That's it, the answer URL then appear in the `zhihu-link` property. You can also edit your answers anytime with the same command.
 
-It is worth mentioning that **you can't create two answers in one question**, witch means that if you've created an answer (or answer draft) for a question, you can't create it again. In this situation, **you should manually edit properties: `zhihu-tags`, `zhihu-question` and `zhihu-link`**. Then run publish command will update your answer.
+It is worth mentioning that **you can't create two answers in one question**, witch means that if you've created an answer (or answer draft) for a question, you can't create it again. In this situation, **you should manually edit properties: `zhihu-question` and `zhihu-link`**. Then run publish command will update your answer.
 
 ### Browsing
 
@@ -119,7 +141,7 @@ You can fork this repo to `vault/.obsidian/plugins`, make sure your NodeJS is at
 
 ## TODO
 
-- [ ] add: mermaid support
+- [x] add: mermaid support
 - [ ] add: desmos-graph support
 - [x] add: reference syntax
 - [ ] add: view upvotes number in status bar

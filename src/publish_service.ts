@@ -1,4 +1,4 @@
-import { App, Vault, Notice, requestUrl } from "obsidian";
+import { App, Vault, Notice, requestUrl, normalizePath } from "obsidian";
 import * as dataUtil from "./data";
 import * as topicsUtil from "./topics";
 import * as fm from "./frontmatter";
@@ -11,10 +11,13 @@ import { addPopularizeStr } from "./popularize";
 import { loadSettings } from "./settings";
 import i18n, { type Lang } from "../locales";
 import { fmtDate } from "./utilities";
+import { parseDisclaimer } from "./disclaimer";
+const locale: Lang = i18n.current;
 
-const locale = i18n.current;
-
-export async function publishCurrentArticle(app: App) {
+export async function publishCurrentArticle(
+    app: App,
+    toDraft = false,
+): Promise<string | undefined> {
     const activeFile = app.workspace.getActiveFile();
     const vault = app.vault;
     const settings = await loadSettings(vault);
@@ -37,6 +40,7 @@ export async function publishCurrentArticle(app: App) {
     const status = publishStatus(frontmatter["zhihu-link"]);
     const title = frontmatter["zhihu-title"] || locale.untitled;
     const toc = !!frontmatter["zhihu-toc"];
+    const disclaimer = frontmatter["zhihu-disclaimer"];
     const rawContent = await app.vault.read(activeFile);
     const rmFmContent = fm.removeFrontmatter(rawContent);
     // 获取文章的ID，如果未发表则新建一个。
@@ -66,7 +70,7 @@ export async function publishCurrentArticle(app: App) {
     // 处理文章封面上传
     const cover = frontmatter["zhihu-cover"];
     if (!(typeof cover === "undefined" || cover === null)) {
-        const coverURL = await imageService.uploadCover(vault, cover);
+        const coverURL = await imageService.uploadCover(app, cover);
         const patchBody = {
             titleImage: coverURL,
             isTitleImageFullScreen: false,
@@ -75,19 +79,10 @@ export async function publishCurrentArticle(app: App) {
         await patchDraft(vault, articleId, patchBody);
         new Notice(`${locale.notice.coverUploadSuccess}`);
     }
-    let transedImgContent = await imageService.processLocalImgs(
-        vault,
-        rmFmContent,
-    );
-    transedImgContent = await imageService.processOnlineImgs(
-        vault,
-        transedImgContent,
-    );
-    let zhihuHTML = await render.mdToZhihuHTML(
-        transedImgContent,
-        settings.useZhihuHeadings,
-    );
-    zhihuHTML = addPopularizeStr(zhihuHTML); // 加上推广文字
+    let zhihuHTML = await render.remarkMdToHTML(app, rmFmContent);
+    if (settings.popularize) {
+        zhihuHTML = addPopularizeStr(zhihuHTML); // 加上推广文字
+    }
     const patchBody = {
         title: title,
         content: zhihuHTML,
@@ -96,6 +91,9 @@ export async function publishCurrentArticle(app: App) {
         can_reward: false,
     };
     await patchDraft(vault, articleId, patchBody);
+
+    if (toDraft) return articleId; // 如果是发布为草稿，就不需要下面的步骤了
+
     // 文章加入话题，否则通常无法发表。话题是自动选取匹配的。
     for (const topic of topics) {
         try {
@@ -119,14 +117,9 @@ export async function publishCurrentArticle(app: App) {
             await checkQuestion(vault, articleId, questionId);
         }
     }
-    const publishResult = await publishDraft(
-        vault,
-        articleId,
-        toc,
-        status === 1,
-    );
+    await publishDraft(vault, articleId, toc, disclaimer, status === 1);
+    const url = `https://zhuanlan.zhihu.com/p/${articleId}`;
 
-    const url = publishResult.publish.url;
     switch (status) {
         case 0: // 未发表
         case 2: // 未发表但已生成草稿
@@ -149,8 +142,7 @@ export async function publishCurrentArticle(app: App) {
 }
 
 export async function createNewZhihuArticle(app: App) {
-    const vault = app.vault;
-    const workspace = app.workspace;
+    const { vault, workspace, fileManager } = app;
 
     let fileName = "untitled";
     let filePath = `${fileName}.md`;
@@ -167,7 +159,7 @@ export async function createNewZhihuArticle(app: App) {
         const newFile = await vault.create(filePath, "");
         const defaultTitle = "untitled";
         const articleId = await newDraft(vault, defaultTitle);
-        await app.fileManager.processFrontMatter(newFile, (fm) => {
+        await fileManager.processFrontMatter(newFile, (fm) => {
             fm["zhihu-title"] = defaultTitle;
             fm["zhihu-topics"] = "";
             fm["zhihu-link"] = `https://zhuanlan.zhihu.com/p/${articleId}/edit`;
@@ -181,6 +173,39 @@ export async function createNewZhihuArticle(app: App) {
     }
 }
 
+export async function convertToNewZhihuArticle(app: App) {
+    const vault = app.vault;
+    const workspace = app.workspace;
+
+    // 获取当前活动文件
+    const activeFile = workspace.getActiveFile();
+    if (!activeFile) {
+        new Notice("未找到当前活动文件");
+        return;
+    }
+
+    try {
+        // 获取文件名作为标题（去除扩展名）
+        const fileName = activeFile.name.replace(/\.md$/, "");
+        const defaultTitle = fileName;
+        const articleId = await newDraft(vault, defaultTitle);
+
+        // 给当前文件添加/更新 frontmatter 信息
+        await app.fileManager.processFrontMatter(activeFile, (fm) => {
+            fm["zhihu-title"] = defaultTitle;
+            fm["zhihu-topics"] = "";
+            fm["zhihu-link"] = `https://zhuanlan.zhihu.com/p/${articleId}/edit`;
+        });
+
+        // 可选：打开当前文件
+        const leaf = workspace.getLeaf(false);
+        await leaf.openFile(activeFile);
+        return activeFile.path;
+    } catch (error) {
+        console.error(locale.error.createModifyFileFailed, error);
+        new Notice("添加知乎元信息失败，请重试。");
+    }
+}
 async function newDraft(vault: Vault, title: string) {
     try {
         const data = await dataUtil.loadData(vault);
@@ -280,8 +305,12 @@ async function publishDraft(
     vault: Vault,
     id: string,
     toc: boolean,
+    disclaimer: unknown,
     isPublished: boolean,
 ) {
+    const { type: disclaimerType, status: disclaimerStatus } =
+        parseDisclaimer(disclaimer);
+    console.log(disclaimerType, disclaimerStatus);
     try {
         const data = await dataUtil.loadData(vault);
         const settings = await loadSettings(vault);
@@ -330,8 +359,8 @@ async function publishDraft(
                         pc_business_params: `{\
                        "column":null,\
                        "commentPermission":"anyone",\
-                       "disclaimer_type":"none",\
-                       "disclaimer_status":"close",\
+                       "disclaimer_type":${disclaimerType},\
+                       "disclaimer_status":${disclaimerStatus},\
                        "table_of_contents_enabled":${toc},\
                        "commercial_report_info":{"commercial_types":[]},\
                        "commercial_zhitask_bind_info":null,\
@@ -345,8 +374,8 @@ async function publishDraft(
                     },
                     commentsPermission: { comment_permission: "anyone" },
                     creationStatement: {
-                        disclaimer_type: "none",
-                        disclaimer_status: "close",
+                        disclaimer_type: disclaimerType,
+                        disclaimer_status: disclaimerStatus,
                     },
                     contentsTables: { table_of_contents_enabled: toc },
                     commercialReportInfo: { isReport: 0 },
@@ -355,7 +384,6 @@ async function publishDraft(
                 },
             }),
         });
-        console.log("response:", response.json);
         if (response.json.message === "success") {
             const result = JSON.parse(response.json.data.result);
             return result;

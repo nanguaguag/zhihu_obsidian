@@ -4,6 +4,24 @@
 </picture>
 <h1>Zhihu on Obsidian</h1>
 
+<p align="center">
+<a href="https://github.com/dongguaguaguagua/zhihu_obsidian/actions">
+<img src="https://img.shields.io/github/actions/workflow/status/dongguaguaguagua/zhihu_obsidian/ci.yml?&branch=master">
+</a>
+<a href="https://github.com/dongguaguaguagua/zhihu_obsidian/releases">
+<img src="https://img.shields.io/github/v/release/dongguaguaguagua/zhihu_obsidian?&sort=semver">
+</a>
+<a href="https://github.com/dongguaguaguagua/zhihu_obsidian/releases">
+<img src="https://img.shields.io/github/downloads/dongguaguaguagua/zhihu_obsidian/total">
+</a>
+<a href="https://github.com/dongguaguaguagua/zhihu_obsidian?tab=0BSD-1-ov-file#0BSD-1-ov-file">
+<img src="https://img.shields.io/github/license/dongguaguaguagua/zhihu_obsidian">
+</a>
+<a href="https://zhihu.melonhu.cn">
+<img src="https://img.shields.io/badge/doc-cn-blue">
+</a>
+</p>
+
 [EN README](./README.md)
 
 </div>
@@ -19,11 +37,15 @@ Zhihu on Obsidian允许你在Obsidian内将markdown内容直接发布到知乎�
 
 ## 使用方法
 
+### 安装插件
+
+在 Obsidian 的插件市场中搜索 `Zhihu`，选择第一个插件并安装即可。
+
 ### 登录知乎
 
-可以通过运行 `Zhihu: QRCode login` 命令，唤出知乎二维码。然后打开知乎app扫码登录，插件会自动获取所有需要的cookie和用户信息。(**插件永远不会上传你的用户信息**)
+运行 `Zhihu: Web login` 命令，可以看到弹出了一个知乎网页端登录页面。打开知乎app扫码登录，插件会自动获取所有需要的cookie和用户信息。(**插件永远不会上传你的用户信息**)
 
-![image-20250503144240817](./imgs/QRCode.png)
+![image-20250503144240817](./imgs/zhihu-weblogin.jpg)
 
 打开`设置->Zhihu Obsidian`, 如果看到你的头像和账号可以正常显示，说明登录成功。
 
@@ -53,7 +75,7 @@ Zhihu on Obsidian允许你在Obsidian内将markdown内容直接发布到知乎�
 
 回答草稿中不需要填写任何属性，直接写完回答后运行命令 `Zhihu: Publish current answer`。然后回答链接就会出现在 `zhihu-link` 属性中。用同样的命令也可以更新回答。
 
-但需要注意，你**不能在同一个问题下创建两次回答**（包括回答草稿）。如果你已经回答过了这个问题，你应该**手动编辑属性：添加 `zhihu-tags`, `zhihu-question`, `zhihu-link`**。再运行发布命令就可以成功更新回答了。
+但需要注意，你**不能在同一个问题下创建两次回答**（包括回答草稿）。如果你已经回答过了这个问题，你应该**手动编辑属性：添加 `zhihu-question`, `zhihu-link`**。再运行发布命令就可以成功更新回答了。
 
 ### 浏览
 
@@ -119,7 +141,7 @@ LaTeX公式也可以正常显示
 
 ## TODO
 
-- [ ] 添加：mermaid 支持
+- [x] 添加：mermaid 支持
 - [ ] 添加：desmos-graph 支持
 - [x] 添加：参考文献支持
 - [ ] 添加：状态栏显示点赞数、收藏数
